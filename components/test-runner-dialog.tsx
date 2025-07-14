@@ -25,7 +25,6 @@ import {
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useTestRunnerStore, type TestCase, type TestRequest } from "@/stores/test-runner-store"
-import { useAppStore } from "@/stores/app-store"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 
@@ -51,8 +50,6 @@ export function TestRunnerDialog({ open, onOpenChange }: TestRunnerDialogProps) 
     getFilteredTestCases,
     getStats,
   } = useTestRunnerStore()
-
-  const { addNotification } = useAppStore()
 
   const [activeTab, setActiveTab] = useState("tests")
   const [importData, setImportData] = useState("")
@@ -118,11 +115,11 @@ export function TestRunnerDialog({ open, onOpenChange }: TestRunnerDialogProps) 
 
       updateTestResult(resultId, result)
 
-      addNotification({
-        type: passed ? "success" : "error",
-        title: `Test ${passed ? "Passed" : "Failed"}`,
-        message: `${testCase.name} - ${request.name}`,
-      })
+      // addNotification({
+      //   type: passed ? "success" : "error",
+      //   title: `Test ${passed ? "Passed" : "Failed"}`,
+      //   message: `${testCase.name} - ${request.name}`,
+      // })
 
       return result
     } catch (error) {
@@ -137,11 +134,11 @@ export function TestRunnerDialog({ open, onOpenChange }: TestRunnerDialogProps) 
 
       updateTestResult(resultId, result)
 
-      addNotification({
-        type: "error",
-        title: `Test ${isTimeout ? "Timeout" : "Error"}`,
-        message: `${testCase.name} - ${request.name}`,
-      })
+      // addNotification({
+      //   type: "error",
+      //   title: `Test ${isTimeout ? "Timeout" : "Error"}`,
+      //   message: `${testCase.name} - ${request.name}`,
+      // })
 
       return result
     }
@@ -158,11 +155,11 @@ export function TestRunnerDialog({ open, onOpenChange }: TestRunnerDialogProps) 
 
     setRunning(false)
 
-    addNotification({
-      type: "info",
-      title: "Test Complete",
-      message: `Finished running ${testCase.name}`,
-    })
+    // addNotification({
+    //   type: "info",
+    //   title: "Test Complete",
+    //   message: `Finished running ${testCase.name}`,
+    // })
   }
 
   const addRequest = () => {
@@ -216,11 +213,11 @@ export function TestRunnerDialog({ open, onOpenChange }: TestRunnerDialogProps) 
 
     addTestCase(testCaseToAdd)
 
-    addNotification({
-      type: "success",
-      title: "Test Case Created",
-      message: `${newTestCase.name} has been added`,
-    })
+    // addNotification({
+    //   type: "success",
+    //   title: "Test Case Created",
+    //   message: `${newTestCase.name} has been added`,
+    // })
 
     // Reset form
     setNewTestCase({
@@ -262,11 +259,11 @@ export function TestRunnerDialog({ open, onOpenChange }: TestRunnerDialogProps) 
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    addNotification({
-      type: "success",
-      title: "Export Complete",
-      message: `${testCase.name} exported successfully`,
-    })
+    // addNotification({
+    //   type: "success",
+    //   title: "Export Complete",
+    //   message: `${testCase.name} exported successfully`,
+    // })
   }
 
   const getStatusIcon = (status: string) => {
