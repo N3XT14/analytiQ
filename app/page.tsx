@@ -5,10 +5,10 @@ import { TestRunnerDialog } from "@/components/test-runner-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { PlayIcon } from "lucide-react"
-import { useState } from "react"
+import { useAppStore } from "@/stores/app-store"
 
 export default function Home() {
-  const [ isTestRunnerOpen, setTestRunnerOpen ] = useState(false)
+  const { activeTab, setActiveTab, isTestRunnerOpen, setTestRunnerOpen } = useAppStore()
 
   return (
     <div className="min-h-screen bg-background">
@@ -20,7 +20,7 @@ export default function Home() {
         </Button>
       </div>
 
-      <Tabs value="table" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="border-b">
           <div className="flex h-16 items-center px-4">
             <TabsList className="grid w-[400px] grid-cols-2">

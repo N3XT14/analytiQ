@@ -4,10 +4,20 @@ import { persist } from "zustand/middleware"
 export interface TestRequest {
   id: string
   name: string
+  bodyType: "none" | "raw" | "form-data" | "x-www-form-urlencoded"
   body: string
+  formData?: Array<{ key: string; value: string }>
   expectedStatus: number
   expectedResponse: string
   timeout: number
+}
+
+export interface Folder {
+  id: string
+  name: string
+  parentId: string | null // null for root folders, otherwise parent folder id
+  createdAt: string
+  updatedAt: string
 }
 
 export interface TestCase {
@@ -18,10 +28,20 @@ export interface TestCase {
   endpoint: string
   method: "GET" | "POST" | "PUT" | "DELETE"
   headers: Record<string, string>
+  authorization?: {
+    type: "bearer" | "basic" | "apikey" | "none"
+    token?: string
+    username?: string
+    password?: string
+    key?: string
+    value?: string
+  }
+  queryParams?: Record<string, string>
   requests: TestRequest[]
   tags: string[]
   createdAt: string
   updatedAt: string
+  folderId?: string | null
 }
 
 export interface TestResult {
@@ -39,11 +59,19 @@ export interface TestResult {
 interface TestRunnerState {
   // Test Cases
   testCases: TestCase[]
-  addTestCase: (testCase: Omit<TestCase, "id" | "createdAt" | "updatedAt">) => void
+  addTestCase: (testCase: Omit<TestCase, "id" | "createdAt" | "updatedAt">) => TestCase
   updateTestCase: (id: string, updates: Partial<TestCase>) => void
   deleteTestCase: (id: string) => void
   duplicateTestCase: (id: string) => void
   getTestCase: (id: string) => TestCase | undefined
+
+  // Folders (renamed from Collections)
+  folders: Folder[]
+  addFolder: (folder: Omit<Folder, "id" | "createdAt" | "updatedAt">) => void
+  updateFolder: (id: string, updates: Partial<Folder>) => void
+  deleteFolder: (id: string) => void
+  getFolderChildren: (parentId: string | null) => Folder[]
+  getFolderTestCases: (folderId: string | null) => TestCase[]
 
   // Test Results
   testResults: TestResult[]
@@ -67,10 +95,16 @@ interface TestRunnerState {
   searchTerm: string
   selectedTags: string[]
   selectedType: "all" | "individual" | "batch"
+  selectedFolderId: string | null
   setSearchTerm: (term: string) => void
   setSelectedTags: (tags: string[]) => void
   setSelectedType: (type: "all" | "individual" | "batch") => void
+  setSelectedFolderId: (id: string | null) => void
   getFilteredTestCases: () => TestCase[]
+
+  // Selected Test Case for UI
+  selectedTestCaseId: string | null
+  setSelectedTestCaseId: (id: string | null) => void
 
   // Statistics
   getStats: () => {
@@ -78,6 +112,7 @@ interface TestRunnerState {
     individualTests: number
     batchTests: number
     totalRequests: number
+    totalFolders: number
     recentResults: {
       passed: number
       failed: number
@@ -100,12 +135,16 @@ export const useTestRunnerStore = create<TestRunnerState>()(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer YOUR_API_KEY",
+          },
+          authorization: {
+            type: "bearer",
+            token: "YOUR_API_KEY",
           },
           requests: [
             {
               id: "req-1",
               name: "Generate Text",
+              bodyType: "raw",
               body: JSON.stringify(
                 {
                   model: "gpt-4",
@@ -123,6 +162,7 @@ export const useTestRunnerStore = create<TestRunnerState>()(
           tags: ["ai", "gpt-4"],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          folderId: "folder-1",
         },
         {
           id: "2",
@@ -133,12 +173,16 @@ export const useTestRunnerStore = create<TestRunnerState>()(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer YOUR_API_KEY",
+          },
+          authorization: {
+            type: "bearer",
+            token: "YOUR_API_KEY",
           },
           requests: [
             {
               id: "req-2",
               name: "Poetry Request",
+              bodyType: "raw",
               body: JSON.stringify(
                 {
                   model: "gpt-4",
@@ -155,6 +199,7 @@ export const useTestRunnerStore = create<TestRunnerState>()(
             {
               id: "req-3",
               name: "Technical Explanation",
+              bodyType: "raw",
               body: JSON.stringify(
                 {
                   model: "gpt-4",
@@ -172,6 +217,56 @@ export const useTestRunnerStore = create<TestRunnerState>()(
           tags: ["ai", "comparison", "batch"],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          folderId: "folder-2",
+        },
+        {
+          id: "3",
+          name: "Public API Health Check",
+          description: "Checks the health of a public JSONPlaceholder API endpoint.",
+          type: "individual",
+          endpoint: "https://jsonplaceholder.typicode.com/todos/1",
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          requests: [
+            {
+              id: "req-4",
+              name: "Fetch Todo Item",
+              bodyType: "none",
+              body: "",
+              expectedStatus: 200,
+              expectedResponse: "delectus aut autem",
+              timeout: 10000,
+            },
+          ],
+          tags: ["public-api", "health-check"],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          folderId: null, // Uncategorized
+        },
+      ],
+      folders: [
+        {
+          id: "folder-1",
+          name: "AI Model Tests",
+          parentId: null, // Root folder
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: "folder-2",
+          name: "Advanced AI Tests",
+          parentId: "folder-1", // Nested under AI Model Tests
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: "folder-3",
+          name: "User Authentication",
+          parentId: null, // Root folder
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
       ],
       testResults: [],
@@ -181,6 +276,8 @@ export const useTestRunnerStore = create<TestRunnerState>()(
       searchTerm: "",
       selectedTags: [],
       selectedType: "all",
+      selectedTestCaseId: null,
+      selectedFolderId: null,
 
       // Test Case Actions
       addTestCase: (testCase) => {
@@ -193,6 +290,7 @@ export const useTestRunnerStore = create<TestRunnerState>()(
         set((state) => ({
           testCases: [...state.testCases, newTestCase],
         }))
+        return newTestCase
       },
 
       updateTestCase: (id, updates) => {
@@ -207,6 +305,7 @@ export const useTestRunnerStore = create<TestRunnerState>()(
         set((state) => ({
           testCases: state.testCases.filter((tc) => tc.id !== id),
           testResults: state.testResults.filter((tr) => tr.testCaseId !== id),
+          selectedTestCaseId: state.selectedTestCaseId === id ? null : state.selectedTestCaseId,
         }))
       },
 
@@ -228,6 +327,59 @@ export const useTestRunnerStore = create<TestRunnerState>()(
 
       getTestCase: (id) => {
         return get().testCases.find((tc) => tc.id === id)
+      },
+
+      // Folder Actions
+      addFolder: (folder) => {
+        const newFolder: Folder = {
+          ...folder,
+          id: `folder-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        set((state) => ({
+          folders: [...state.folders, newFolder],
+        }))
+      },
+
+      updateFolder: (id, updates) => {
+        set((state) => ({
+          folders: state.folders.map((folder) =>
+            folder.id === id ? { ...folder, ...updates, updatedAt: new Date().toISOString() } : folder,
+          ),
+        }))
+      },
+
+      deleteFolder: (id) => {
+        const { folders, testCases } = get()
+
+        // Get all descendant folders recursively
+        const getDescendantFolders = (parentId: string): string[] => {
+          const children = folders.filter((f) => f.parentId === parentId)
+          const descendants = [parentId]
+          children.forEach((child) => {
+            descendants.push(...getDescendantFolders(child.id))
+          })
+          return descendants
+        }
+
+        const foldersToDelete = getDescendantFolders(id)
+
+        set((state) => ({
+          folders: state.folders.filter((folder) => !foldersToDelete.includes(folder.id)),
+          testCases: state.testCases.map((tc) =>
+            foldersToDelete.includes(tc.folderId || "") ? { ...tc, folderId: null } : tc,
+          ),
+          selectedFolderId: foldersToDelete.includes(state.selectedFolderId || "") ? null : state.selectedFolderId,
+        }))
+      },
+
+      getFolderChildren: (parentId) => {
+        return get().folders.filter((folder) => folder.parentId === parentId)
+      },
+
+      getFolderTestCases: (folderId) => {
+        return get().testCases.filter((tc) => tc.folderId === folderId)
       },
 
       // Test Result Actions
@@ -294,37 +446,41 @@ export const useTestRunnerStore = create<TestRunnerState>()(
         set({ selectedType: type })
       },
 
+      setSelectedFolderId: (id) => {
+        set({ selectedFolderId: id })
+      },
+
       getFilteredTestCases: () => {
         const { testCases, searchTerm, selectedTags, selectedType } = get()
 
         return testCases.filter((tc) => {
-          // Search term filter
           const matchesSearch =
             !searchTerm ||
             tc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             tc.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
             tc.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
 
-          // Type filter
           const matchesType = selectedType === "all" || tc.type === selectedType
-
-          // Tags filter
           const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => tc.tags.includes(tag))
 
           return matchesSearch && matchesType && matchesTags
         })
       },
 
+      // Selected Test Case for UI
+      setSelectedTestCaseId: (id) => set({ selectedTestCaseId: id }),
+
       // Statistics
       getStats: () => {
-        const { testCases, testResults } = get()
-        const recentResults = testResults.slice(0, 100) // Last 100 results
+        const { testCases, testResults, folders } = get()
+        const recentResults = testResults.slice(0, 100)
 
         return {
           totalTests: testCases.length,
           individualTests: testCases.filter((tc) => tc.type === "individual").length,
           batchTests: testCases.filter((tc) => tc.type === "batch").length,
           totalRequests: testCases.reduce((sum, tc) => sum + tc.requests.length, 0),
+          totalFolders: folders.length,
           recentResults: {
             passed: recentResults.filter((r) => r.status === "passed").length,
             failed: recentResults.filter((r) => r.status === "failed").length,
@@ -338,6 +494,7 @@ export const useTestRunnerStore = create<TestRunnerState>()(
       partialize: (state) => ({
         testCases: state.testCases,
         testResults: state.testResults,
+        folders: state.folders,
       }),
     },
   ),
